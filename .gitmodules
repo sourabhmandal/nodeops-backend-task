@@ -1,0 +1,3 @@
+[submodule "simple-taiko-node"]
+	path = simple-taiko-node
+	url = https://github.com/taikoxyz/simple-taiko-node.git
