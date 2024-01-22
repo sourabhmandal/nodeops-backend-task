@@ -58,118 +58,113 @@
 </head>
 <body>
 <div>
-	<h1>{{.Title}}</h1>
+	<h1>heloo</h1>
     <p>Click the button to start / stop the node</p>
     <button type="button" id="node-button" onclick="manageNode()">Start Node</button>
     <br>
     <p id="node-status" class="up"></p>
-    <p id="start-error"></p>
-    <p id="close-error"></p>
-    <p id="wait-error"></p>
 </div>
+    <script>    
+    const CHECK_URL = "/check";
+    const START_URL = "/start";
+    const WAIT_URL = "/wait";
+    const DOWN_URL = "/down";
+    const startButtonText = "Start Node";
+    const stopButtonText = "Stop Node";
 
-    <script>
-        let startButton = "Start Node"
-        let closeButton = "Stop Node"
-        const buttonElement = document.getElementById("node-button");
-        let nodeStatusElement = document.getElementById("node-status");
+    const buttonElement = document.getElementById("node-button");
+    const nodeStatusElement = document.getElementById("node-status");
 
-        fetch("/check")
-            .then(response => response.json())
-            .then(data => {
-                console.log("check response", data)
-                if(data.ok == false) {
-                    buttonElement.textContent = startButton
-                    nodeStatusElement.classList.remove("up", "down");
-                    nodeStatusElement.classList.add("down");
-                    nodeStatusElement.textContent = "node is down"
-                }else {
-                    buttonElement.textContent = closeButton
-                    nodeStatusElement.classList.remove("up", "down");
-                    nodeStatusElement.classList.add("up");
-                    nodeStatusElement.textContent = "node is up and running"
-                }
+    function updateNodeStatus(data) {
+    console.log(data);
 
-            }).catch(error => console.error(error));
+    // Update node status based on the data
+    if (data.ok === false) {
+        buttonElement.textContent = startButtonText;
+        nodeStatusElement.classList.remove("up", "down");
+        nodeStatusElement.classList.add("down");
+        nodeStatusElement.textContent = data.error;
+    } else {
+        buttonElement.textContent = stopButtonText;
+        nodeStatusElement.classList.remove("up", "down");
+        nodeStatusElement.classList.add("up");
+        nodeStatusElement.textContent = data.status ?? "node is up and running";
+    }
+    }
 
-        
-        function manageNode() {
-            
+    async function fetchData(url) {
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
 
-            buttonElement.disabled = true
-
-            let buttonText = buttonElement.textContent
-            console.log(buttonText)
-            if(buttonText == startButton) {
-                nodeStatusElement.textContent = "node is starting..."
-                const url = "/start";
-                fetch(url)
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log("start response", data)
-                        if(data.ok == true) {
-                            fetch("/wait")
-                                .then(response => response.json())
-                                .then(data => {
-                                    console.log("wait response", data)
-                                    if(data.ok == true) {
-                                        fetch("/check")
-                                            .then(response => response.json())
-                                            .then(data => {
-                                                console.log("check response", data)
-                                                if(data.ok == true) {
-                                                    buttonElement.textContent = closeButton
-                                                    nodeStatusElement.classList.remove("up", "down");
-                                                    nodeStatusElement.classList.add("up");
-                                                    nodeStatusElement.textContent = "node is up and running"
-                                                }
-                                            }).catch(error => console.error(error));
-                                    }
-                                }).catch(error => console.error(error));
-
-                        }
-                        else document.getElementById("start-error").innerHTML = data.error
-                        
-                        return
-                    })
-                    .then(data => buttonElement.disabled = false)
-                    .catch(error => {
-                        nodeStatusElement.classList.remove("up", "down");
-                        nodeStatusElement.classList.add("down");
-                        console.error(error)
-                    });
-            } else {
-                nodeStatusElement.textContent = "node is stopping..."
-
-                const url = "/down";
-                fetch(url)
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log("down response", data)
-                        if(data.ok == true) {
-                            fetch("/check")
-                                .then(response => response.json())
-                                .then(data => {
-                                    console.log("check response", data)
-                                    if(data.ok == false) {
-                                        buttonElement.textContent = startButton
-                                        nodeStatusElement.classList.remove("up", "down");
-                                        nodeStatusElement.classList.add("down");
-                                        nodeStatusElement.textContent = "node is down"
-                                    }
-                                }).catch(error => console.error(error));
-
-                        }
-                        else document.getElementById("close-error").innerHTML = data.error  
-                    })
-                    .then(data => buttonElement.disabled = false)
-                    .catch(error => {
-                        nodeStatusElement.classList.remove("up", "down");
-                        nodeStatusElement.classList.add("down");
-                        console.error(error)
-                    });
-            }           
+        if (data.ok == true) {
+        return data;
         }
+        if (data.error) throw new Error(data.error);
+        else throw new Error("unhandled error occured");
+    } catch (error) {
+        return {
+        ok: false,
+        error: error.toString(),
+        };
+    }
+    }
+
+    async function manageNode() {
+    buttonElement.disabled = true;
+
+    try {
+        const buttonText = buttonElement.textContent;
+
+        if (buttonText === startButtonText) {
+        updateNodeStatus({ ok: true, status: "node is starting..." });
+        // nodeStatusElement.textContent = "node is starting...";
+        const startData = await fetchData(START_URL);
+
+        if (startData.ok === true) {
+            const waitData = await fetchData(WAIT_URL);
+            if (waitData.ok === true) {
+            const checkData = await fetchData(CHECK_URL);
+            updateNodeStatus(checkData);
+            return;
+            } else {
+            updateNodeStatus(waitData);
+            return;
+            }
+        } else {
+            updateNodeStatus(startData);
+        }
+        } else {
+        updateNodeStatus({ ok: false, error: "node is stopping..." });
+
+        // nodeStatusElement.textContent =;
+
+        const downData = await fetchData(DOWN_URL);
+        if (downData.ok === true) {
+            const checkData = await fetchData(CHECK_URL);
+            updateNodeStatus(checkData);
+            return;
+        } else {
+            updateNodeStatus(downData);
+            return;
+        }
+        }
+    } catch (error) {
+        // Handle generic errors
+    } finally {
+        buttonElement.disabled = false;
+    }
+    }
+
+    (async () => {
+    try {
+        const checkData = await fetchData(CHECK_URL);
+        updateNodeStatus(checkData);
+    } catch (error) {
+        console.error(error);
+    }
+    })();
+
     </script>
 </body>
 </html>
